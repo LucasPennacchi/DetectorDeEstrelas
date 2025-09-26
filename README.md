@@ -27,7 +27,7 @@ O programa foi construído para ser robusto e lidar com cenários complexos do m
 Use o compilador wrapper do MPI, `mpicc`, para compilar o código. Isso garante que todas as bibliotecas MPI necessárias sejam vinculadas corretamente.
 
 ```bash
-mpicc -o detectar_estrelas_avancado detectar_estrelas_avancado.c -lm
+mpicc -o detectar_estrelas detectar_estrelas.c -lm
 ```
 
 *(A flag `-lm` é adicionada para vincular a biblioteca matemática, necessária para funções como `sqrt` e `fmax`/`fmin`)*
@@ -37,20 +37,20 @@ mpicc -o detectar_estrelas_avancado detectar_estrelas_avancado.c -lm
 O programa é executado com `mpirun`. É necessário especificar o número de processos a serem usados com a flag `-np` e o caminho para a imagem PGM.
 
 ```bash
-mpirun -np <numero_de_processos> ./detectar_estrelas_avancado <caminho_para_imagem.pgm>
+mpirun -np <numero_de_processos> ./detectar_estrelas <caminho_para_imagem.pgm>
 ```
 
 **Exemplo com 4 processos:**
 
 ```bash
-mpirun -np 4 ./detectar_estrelas_avancado estrelas3.pgm
+mpirun -np 4 ./detectar_estrelas estrelas3.pgm
 ```
 
 **Nota Importante para Execução Local:**
 Ao executar num computador pessoal (laptop/desktop), o MPI pode limitar o número de processos por padrão. Para forçar a execução com o número de processos solicitado, use a flag `--oversubscribe`:
 
 ```bash
-mpirun -np 4 --oversubscribe ./detectar_estrelas_avancado estrelas3.pgm
+mpirun -np 4 --oversubscribe ./detectar_estrelas estrelas3.pgm
 ```
 
 -----
@@ -104,7 +104,7 @@ Cada escravo executa um pipeline de análise sofisticado:
 
 ## 4\. Parâmetros Configuráveis
 
-No topo do ficheiro `detectar_estrelas_avancado.c`, existem constantes que podem ser ajustadas para otimizar a deteção para diferentes tipos de imagens:
+No topo do ficheiro `detectar_estrelas.c`, existem constantes que podem ser ajustadas para otimizar a deteção para diferentes tipos de imagens:
 
   * `BRILHO_MINIMO`: (Padrão: 200) Define o limiar de brilho. Aumente para detetar apenas os objetos mais brilhantes; diminua para incluir objetos mais ténues.
   * `LIMIAR_DE_CIRCULARIDADE`: (Padrão: 0.75) Controla a sensibilidade da deteção de aglomerados. Diminua se estrelas únicas ligeiramente irregulares estiverem a ser contadas como aglomerados; aumente se aglomerados óbvios não estiverem a ser separados.

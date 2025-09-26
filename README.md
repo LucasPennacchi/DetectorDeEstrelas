@@ -7,7 +7,7 @@ Trabalho de faculdade para matéria de Computação Paralela e Distribuída - Un
 
 ## 1\. Visão Geral
 
-O `detectar_estrelas_avancado.c` é um programa de alto desempenho escrito em C com MPI (Message Passing Interface) projetado para identificar e contar "estrelas" em imagens astronómicas no formato PGM (Portable Graymap).
+O `detectar_estrelas.c` é um programa de alto desempenho escrito em C com MPI (Message Passing Interface) projetado para identificar e contar "estrelas" em imagens astronómicas no formato PGM (Portable Graymap).
 
 O programa foi construído para ser robusto e lidar com cenários complexos do mundo real, incluindo:
 
@@ -100,7 +100,7 @@ Isto é fornecido apenas para referência. Para o seu ambiente **MPICH**, use as
 
 ## 3\. Estratégia e Algoritmos
 
-*(Esta seção permanece inalterada, pois descreve a lógica interna do código)*
+*(Esta seção descreve a lógica interna do código `detectar_estrelas.c`)*
 
 #### 3.1. Paralelismo e Divisão de Tarefas
 

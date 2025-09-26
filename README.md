@@ -5,7 +5,7 @@ Trabalho de faculdade para matéria de Computação Paralela e Distribuída - Un
 
 ## 1\. Visão Geral
 
-O `detectar_estrelas.c` é um programa de alto desempenho escrito em C com MPI (Message Passing Interface) projetado para identificar e contar "estrelas" em imagens astronómicas no formato PGM (Portable Graymap).
+O `detectar_estrelas_avancado.c` é um programa de alto desempenho escrito em C com MPI (Message Passing Interface) projetado para identificar e contar "estrelas" em imagens astronómicas no formato PGM (Portable Graymap).
 
 O programa foi construído para ser robusto e lidar com cenários complexos do mundo real, incluindo:
 
@@ -17,95 +17,110 @@ O programa foi construído para ser robusto e lidar com cenários complexos do m
 
 ## 2\. Compilação e Execução
 
+Esta seção detalha como compilar o código e as várias formas de o executar, especialmente em ambientes de Máquina Virtual (VM) onde a configuração de rede do MPI pode ser um desafio.
+
 #### 2.1. Requisitos
 
   * Um compilador C (como o GCC).
-  * Uma implementação do padrão MPI (ex: **Open MPI** ou **MPICH**).
+  * Uma implementação do padrão MPI. **Este guia foca-se no MPICH**, que é comum em distribuições como o Ubuntu.
 
 #### 2.2. Compilação
 
-Use o compilador wrapper do MPI, `mpicc`, para compilar o código. Isso garante que todas as bibliotecas MPI necessárias sejam vinculadas corretamente.
+Use o compilador wrapper do MPI, `mpicc`, para compilar o código. A flag `-lm` é essencial para vincular a biblioteca de matemática.
 
 ```bash
 mpicc -o detectar_estrelas detectar_estrelas.c -lm
 ```
 
-*(A flag `-lm` é adicionada para vincular a biblioteca matemática, necessária para funções como `sqrt` e `fmax`/`fmin`)*
+Se o comando for executado sem erros, um ficheiro executável chamado `detectar_estrelas` será criado.
 
 #### 2.3. Execução
 
-O programa é executado com `mpirun`. É necessário especificar o número de processos a serem usados com a flag `-np` e o caminho para a imagem PGM.
+A execução é controlada pelo comando `mpirun`. O número de processos é definido pela flag `-np`. Devido à natureza dos ambientes virtualizados, os processos podem não conseguir comunicar entre si por padrão. Tente os seguintes comandos por ordem.
+
+**\<N\>** deve ser o número total de processos (ex: 4) e **\<imagem.pgm\>** o nome do seu ficheiro (ex: `estrelas3.pgm`).
+
+-----
+
+**Tentativa 1: O Método `hostfile` (Mais Recomendado para VMs)**
+
+Esta é a abordagem mais explícita e fiável. Ela informa ao MPI exatamente quantos "espaços" de execução estão disponíveis na sua máquina.
+
+1.  **Crie um ficheiro de configuração** chamado `myhosts`:
+
+    ```bash
+    touch myhosts
+    ```
+
+2.  **Edite o ficheiro `myhosts`**. Para executar com **4 processos**, o conteúdo do ficheiro deve ser:
+
+    ```
+    localhost
+    localhost
+    localhost
+    localhost
+    ```
+
+    *(Alternativamente, pode usar o formato `localhost:4` se a sua versão do MPICH o suportar).*
+
+3.  **Execute** o programa apontando para este ficheiro:
+
+    ```bash
+    mpirun -np 4 --hostfile myhosts ./detectar_estrelas estrelas3.pgm
+    ```
+
+-----
+
+**Tentativa 2: Forçar a Interface de Rede Local**
+
+Se o método `hostfile` falhar, este comando força o MPI a usar a interface de rede de `loopback` (`lo`), que é puramente interna à máquina e não é afetada por firewalls externos.
 
 ```bash
-mpirun -np <numero_de_processos> ./detectar_estrelas <caminho_para_imagem.pgm>
-```
-
-**Exemplo com 4 processos:**
-
-```bash
-mpirun -np 4 ./detectar_estrelas estrelas3.pgm
-```
-
-**Nota Importante para Execução Local:**
-Ao executar num computador pessoal (laptop/desktop), o MPI pode limitar o número de processos por padrão. Para forçar a execução com o número de processos solicitado, use a flag `--oversubscribe`:
-
-```bash
-mpirun -np 4 --oversubscribe ./detectar_estrelas estrelas3.pgm
+mpirun -np 4 -iface lo ./detectar_estrelas estrelas3.pgm
 ```
 
 -----
 
-## 3\. Estratégia e Algoritmos Implementados
+**Tentativa 3: O Comando Padrão do MPICH**
 
-O programa utiliza um modelo **Mestre-Escravo** e uma cadeia de algoritmos de visão computacional para garantir uma contagem precisa.
+Este comando tenta especificar o `localhost` diretamente. Pode funcionar em algumas configurações.
+
+```bash
+mpirun -np 4 -host localhost ./detectar_estrelas estrelas3.pgm
+```
+
+-----
+
+**Nota sobre Outras Versões do MPI:**
+Se estivesse a usar uma versão diferente do MPI, como o **Open MPI**, o comando para forçar a execução seria diferente. O equivalente ao que tentámos resolver seria:
+`mpirun -np 4 --oversubscribe ./detectar_estrelas estrelas3.pgm`
+Isto é fornecido apenas para referência. Para o seu ambiente **MPICH**, use as soluções `hostfile` ou `-iface lo`.
+
+## 3\. Estratégia e Algoritmos
+
+*(Esta seção permanece inalterada, pois descreve a lógica interna do código)*
 
 #### 3.1. Paralelismo e Divisão de Tarefas
 
-1.  **Processo Mestre (Rank 0):**
-
-      * Lê a imagem PGM completa para a memória.
-      * Divide a imagem em fatias verticais, uma para cada processo escravo.
-      * Envia a cada escravo a sua fatia de trabalho.
-      * Aguarda e recolhe o resultado (a contagem de estrelas) de cada escravo.
-      * Soma os resultados e apresenta a contagem final.
-
-2.  **Processos Escravos (Rank \> 0):**
-
-      * Recebem uma fatia da imagem.
-      * Executam o algoritmo de deteção avançada nessa fatia.
-      * Enviam a sua contagem final de volta para o mestre.
+O programa utiliza um modelo **Mestre-Escravo**. O Mestre (Rank 0) lê e distribui a imagem em fatias para os Escravos (Rank \> 0), que processam a sua fatia e devolvem a contagem de estrelas.
 
 #### 3.2. Solução para o Problema da Fronteira
 
-Para evitar que estrelas localizadas nas bordas das fatias sejam contadas duplamente ou ignoradas, implementou-se uma solução em duas partes:
-
-1.  **Zonas de Sobreposição (Overlap Zones):** O mestre não envia fatias exatas. Ele envia a cada escravo a sua fatia de responsabilidade mais uma "moldura" extra com os pixels dos seus vizinhos (definido pelo `OVERLAP`). Isso garante que cada escravo tenha o contexto completo para analisar qualquer estrela perto da sua borda.
-
-2.  **Regra de Autoridade:** Após um escravo detetar uma estrela, ele calcula o seu centro de massa. A estrela só é contabilizada se o seu centro de massa estiver dentro da zona de responsabilidade original do escravo (excluindo a área de sobreposição). Isso garante que, embora dois escravos possam ver a mesma estrela na fronteira, apenas um (o que tem "autoridade" sobre o seu centro) a irá contar.
+  * **Zonas de Sobreposição (Overlap Zones):** Cada escravo recebe uma fatia ligeiramente maior que a sua zona de responsabilidade, garantindo que objetos nas bordas sejam vistos por inteiro.
+  * **Regra de Autoridade:** Uma estrela só é contada pelo escravo em cuja zona de responsabilidade o seu **centro de massa** se encontra. Isto evita a contagem dupla.
 
 #### 3.3. Algoritmo de Deteção (Por Escravo)
 
-Cada escravo executa um pipeline de análise sofisticado:
-
-1.  **Binarização:** A imagem recebida é convertida para um formato binário (preto e branco). Pixels com brilho acima do `BRILHO_MINIMO` tornam-se "ativos" (brancos), o resto é ignorado (preto).
-
-2.  **Deteção de Blobs (Análise de Componentes Conectados):** O programa varre a imagem binarizada e agrupa todos os pixels ativos conectados, formando "blobs" ou "manchas". Cada blob representa um objeto candidato a ser uma ou mais estrelas.
-
-3.  **Análise Morfológica (Decisão Baseada na Forma):** Esta é a parte mais inteligente do algoritmo. Para cada blob, o programa decide se é uma estrela simples ou um aglomerado complexo:
-
-      * **Cálculo de Circularidade:** O programa mede quão "redondo" o blob é usando a fórmula `(4 * PI * Área) / (Perímetro²)`, onde um círculo perfeito resulta em 1.0.
-      * **Decisão:**
-          * Se a `circularidade` for alta (\>= `LIMIAR_DE_CIRCULARIDADE`), a forma é considerada simples. O blob é contado como **1 estrela**.
-          * Se a `circularidade` for baixa, a forma é complexa e irregular, indicando um aglomerado de estrelas sobrepostas.
-
-4.  **Separação de Aglomerados:** Para os blobs complexos, o programa ativa um algoritmo para contar os objetos individuais dentro dele. Ele simula o resultado de uma **Transformada da Distância** ao encontrar todos os **picos de brilho (máximos locais)** dentro da área do blob. O número de picos encontrados é o número de estrelas no aglomerado.
-
------
+1.  **Binarização:** Pixels acima de `BRILHO_MINIMO` são marcados como candidatos.
+2.  **Deteção de Blobs:** Pixels candidatos conectados são agrupados em "blobs".
+3.  **Análise Morfológica:**
+      * Para cada blob, a **circularidade** é calculada usando a fórmula `(4 * PI * Área) / (Perímetro²)`.
+      * Se a circularidade for alta (\>= `LIMIAR_DE_CIRCULARIDADE`), a forma é simples e contada como **1 estrela**.
+      * Se for baixa, a forma é complexa e considerada um aglomerado.
+4.  **Separação de Aglomerados:** Para blobs complexos, o programa conta os **picos de brilho (máximos locais)** internos para determinar o número real de estrelas sobrepostas.
 
 ## 4\. Parâmetros Configuráveis
 
-No topo do ficheiro `detectar_estrelas.c`, existem constantes que podem ser ajustadas para otimizar a deteção para diferentes tipos de imagens:
-
-  * `BRILHO_MINIMO`: (Padrão: 200) Define o limiar de brilho. Aumente para detetar apenas os objetos mais brilhantes; diminua para incluir objetos mais ténues.
-  * `LIMIAR_DE_CIRCULARIDADE`: (Padrão: 0.75) Controla a sensibilidade da deteção de aglomerados. Diminua se estrelas únicas ligeiramente irregulares estiverem a ser contadas como aglomerados; aumente se aglomerados óbvios não estiverem a ser separados.
-  * `OVERLAP`: (Padrão: 30) Define o tamanho em pixels da zona de sobreposição. Este valor deve ser maior que o raio da maior estrela esperada na imagem para garantir uma deteção correta nas fronteiras.
+  * `BRILHO_MINIMO`: (Padrão: 200) Limiar de brilho para considerar um pixel.
+  * `LIMIAR_DE_CIRCULARIDADE`: (Padrão: 0.75) Nota de "perfeição" da forma para decidir se um blob é simples ou um aglomerado.
+  * `OVERLAP`: (Padrão: 30) Tamanho da zona de sobreposição em pixels.

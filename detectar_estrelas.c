@@ -32,7 +32,6 @@ typedef struct {
     Point *pixels;
 } Blob;
 
-// ... (Funções da Fila e lerCabecalhoPGM - sem alterações) ...
 Queue* createQueue(int capacity) {
     Queue* q = (Queue*)malloc(sizeof(Queue));
     q->capacity = capacity;
@@ -161,7 +160,6 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    // ... (Validação de argumentos - sem alterações) ...
     if (size < 2) {
         if (rank == 0) fprintf(stderr, "Erro: Requer pelo menos 2 processos.\n");
         MPI_Finalize();
@@ -177,7 +175,6 @@ int main(int argc, char **argv) {
     // PROCESSO MESTRE (RANK 0)
     //=================================================
     if (rank == 0) {
-        // ... (código do mestre sem alterações) ...
         FILE *arquivoImagem = fopen(argv[1], "r");
         if (!arquivoImagem) {
             perror("Erro ao abrir imagem");
@@ -308,4 +305,5 @@ int main(int argc, char **argv) {
 
     MPI_Finalize();
     return 0;
+
 }
